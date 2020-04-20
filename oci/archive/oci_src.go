@@ -89,6 +89,14 @@ func (s *ociArchiveImageSource) GetManifest(ctx context.Context, instanceDigest 
 	return s.unpackedSrc.GetManifest(ctx, instanceDigest)
 }
 
+func (s *ociArchiveImageSource) GetDeltaManifest(ctx context.Context, instanceDigest *digest.Digest) ([]byte, string, error) {
+	return nil, "", nil
+}
+
+func (s *ociArchiveImageSource) GetDeltaIndex(ctx context.Context) (types.ImageReference, error) {
+	return nil, nil
+}
+
 // HasThreadSafeGetBlob indicates whether GetBlob can be executed concurrently.
 func (s *ociArchiveImageSource) HasThreadSafeGetBlob() bool {
 	return false

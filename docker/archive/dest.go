@@ -7,6 +7,7 @@ import (
 
 	"github.com/containers/image/v5/docker/tarfile"
 	"github.com/containers/image/v5/types"
+	digest "github.com/opencontainers/go-digest"
 	"github.com/pkg/errors"
 )
 
@@ -69,4 +70,8 @@ func (d *archiveImageDestination) Close() error {
 // - Uploaded data MAY be removed or MAY remain around if Close() is called without Commit() (i.e. rollback is allowed but not guaranteed)
 func (d *archiveImageDestination) Commit(ctx context.Context, unparsedToplevel types.UnparsedImage) error {
 	return d.Destination.Commit(ctx)
+}
+
+func (d *archiveImageDestination) GetLayerDeltaData(ctx context.Context, diffID digest.Digest) (types.DeltaDataSource, error) {
+	return nil, nil
 }

@@ -140,6 +140,10 @@ func (d *ociArchiveImageDestination) Commit(ctx context.Context, unparsedTopleve
 	return tarDirectory(src, dst)
 }
 
+func (d *ociArchiveImageDestination) GetLayerDeltaData(ctx context.Context, diffID digest.Digest) (types.DeltaDataSource, error) {
+	return nil, nil
+}
+
 // tar converts the directory at src and saves it to dst
 func tarDirectory(src, dst string) error {
 	// input is a stream of bytes from the archive of the directory at path

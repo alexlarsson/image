@@ -211,6 +211,17 @@ func (s *openshiftImageSource) GetManifest(ctx context.Context, instanceDigest *
 	return s.docker.GetManifest(ctx, instanceDigest)
 }
 
+func (s *openshiftImageSource) GetDeltaManifest(ctx context.Context, instanceDigest *digest.Digest) ([]byte, string, error) {
+	if err := s.ensureImageIsResolved(ctx); err != nil {
+		return nil, "", err
+	}
+	return s.docker.GetDeltaManifest(ctx, instanceDigest)
+}
+
+func (s *openshiftImageSource) GetDeltaIndex(ctx context.Context) (types.ImageReference, error) {
+	return s.docker.GetDeltaIndex(ctx)
+}
+
 // HasThreadSafeGetBlob indicates whether GetBlob can be executed concurrently.
 func (s *openshiftImageSource) HasThreadSafeGetBlob() bool {
 	return false
@@ -509,6 +520,10 @@ sigExists:
 // - Uploaded data MAY be removed or MAY remain around if Close() is called without Commit() (i.e. rollback is allowed but not guaranteed)
 func (d *openshiftImageDestination) Commit(ctx context.Context, unparsedToplevel types.UnparsedImage) error {
 	return d.docker.Commit(ctx, unparsedToplevel)
+}
+
+func (d *openshiftImageDestination) GetLayerDeltaData(ctx context.Context, diffID digest.Digest) (types.DeltaDataSource, error) {
+	return d.docker.GetLayerDeltaData(ctx, diffID)
 }
 
 // These structs are subsets of github.com/openshift/origin/pkg/image/api/v1 and its dependencies.

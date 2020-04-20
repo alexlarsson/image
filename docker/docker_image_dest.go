@@ -655,3 +655,7 @@ sigExists:
 func (d *dockerImageDestination) Commit(context.Context, types.UnparsedImage) error {
 	return nil
 }
+
+func (d *dockerImageDestination) GetLayerDeltaData(ctx context.Context, diffID digest.Digest) (types.DeltaDataSource, error) {
+	return nil, nil
+}

@@ -245,6 +245,10 @@ func (d *dirImageDestination) Commit(context.Context, types.UnparsedImage) error
 	return nil
 }
 
+func (d *dirImageDestination) GetLayerDeltaData(ctx context.Context, diffID digest.Digest) (types.DeltaDataSource, error) {
+	return nil, nil
+}
+
 // returns true if path exists
 func pathExists(path string) (bool, error) {
 	_, err := os.Stat(path)

@@ -247,6 +247,14 @@ func (is *tarballImageSource) GetManifest(ctx context.Context, instanceDigest *d
 	return is.manifest, imgspecv1.MediaTypeImageManifest, nil
 }
 
+func (s *tarballImageSource) GetDeltaManifest(ctx context.Context, instanceDigest *digest.Digest) ([]byte, string, error) {
+	return nil, "", nil
+}
+
+func (s *tarballImageSource) GetDeltaIndex(ctx context.Context) (types.ImageReference, error) {
+	return nil, nil
+}
+
 // GetSignatures returns the image's signatures.  It may use a remote (= slow) service.
 // This source implementation does not support manifest lists, so the passed-in instanceDigest should always be nil,
 // as there can be no secondary manifests.

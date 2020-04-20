@@ -314,6 +314,10 @@ func (d *ociImageDestination) Commit(context.Context, types.UnparsedImage) error
 	return ioutil.WriteFile(d.ref.indexPath(), indexJSON, 0644)
 }
 
+func (d *ociImageDestination) GetLayerDeltaData(ctx context.Context, diffID digest.Digest) (types.DeltaDataSource, error) {
+	return nil, nil
+}
+
 func ensureDirectoryExists(path string) error {
 	if _, err := os.Stat(path); err != nil && os.IsNotExist(err) {
 		if err := os.MkdirAll(path, 0755); err != nil {

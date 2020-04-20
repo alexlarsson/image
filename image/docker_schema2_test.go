@@ -45,6 +45,12 @@ func (f unusedImageSource) GetSignatures(context.Context, *digest.Digest) ([][]b
 func (f unusedImageSource) LayerInfosForCopy(context.Context, *digest.Digest) ([]types.BlobInfo, error) {
 	panic("Unexpected call to a mock function")
 }
+func (f unusedImageSource) GetDeltaManifest(ctx context.Context, instanceDigest *digest.Digest) ([]byte, string, error) {
+	panic("Unexpected call to a mock function")
+}
+func (f unusedImageSource) GetDeltaIndex(ctx context.Context) (types.ImageReference, error) {
+	panic("Unexpected call to a mock function")
+}
 
 func manifestSchema2FromFixture(t *testing.T, src types.ImageSource, fixture string, mustFail bool) genericManifest {
 	manifest, err := ioutil.ReadFile(filepath.Join("fixtures", fixture))
@@ -365,6 +371,9 @@ func (ref refImageReferenceMock) NewImageDestination(ctx context.Context, sys *t
 func (ref refImageReferenceMock) DeleteImage(ctx context.Context, sys *types.SystemContext) error {
 	panic("unexpected call to a mock function")
 }
+func (ref refImageReferenceMock) GetLayerDeltaData(ctx context.Context, diffID digest.Digest) (types.DeltaDataSource, error) {
+	panic("unexpected call to a mock function")
+}
 
 func newSchema2ImageSource(t *testing.T, dockerRef string) *schema2ImageSource {
 	realConfigJSON, err := ioutil.ReadFile("fixtures/schema2-config.json")
@@ -440,6 +449,12 @@ func (d *memoryImageDest) PutSignatures(ctx context.Context, signatures [][]byte
 }
 func (d *memoryImageDest) Commit(context.Context, types.UnparsedImage) error {
 	panic("Unexpected call to a mock function")
+}
+func (d *memoryImageDest) DeleteImage(ctx context.Context, sys *types.SystemContext) error {
+	panic("unexpected call to a mock function")
+}
+func (d *memoryImageDest) GetLayerDeltaData(ctx context.Context, diffID digest.Digest) (types.DeltaDataSource, error) {
+	panic("unexpected call to a mock function")
 }
 
 // modifiedLayerInfos returns two identical (but separately allocated) copies of

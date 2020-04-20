@@ -49,6 +49,10 @@ func (i *memoryImage) Manifest(ctx context.Context) ([]byte, string, error) {
 	return i.serializedManifest, i.genericManifest.manifestMIMEType(), nil
 }
 
+func (i *memoryImage) DeltaLayers(ctx context.Context) ([]types.BlobInfo, error) {
+	return nil, nil
+}
+
 // Signatures is like ImageSource.GetSignatures, but the result is cached; it is OK to call this however often you need.
 func (i *memoryImage) Signatures(ctx context.Context) ([][]byte, error) {
 	// Modifying an image invalidates signatures; a caller asking the updated image for signatures
