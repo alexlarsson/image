@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"github.com/alexlarsson/tar-diff/pkg/tar-patch"
 	"github.com/containers/image/v5/types"
 	"github.com/opencontainers/go-digest"
 	"github.com/pkg/errors"
@@ -243,6 +244,10 @@ func (d *dirImageDestination) PutSignatures(ctx context.Context, signatures [][]
 // - Uploaded data MAY be removed or MAY remain around if Close() is called without Commit() (i.e. rollback is allowed but not guaranteed)
 func (d *dirImageDestination) Commit(context.Context, types.UnparsedImage) error {
 	return nil
+}
+
+func (d *dirImageDestination) GetLayerDeltaData(ctx context.Context, diffID digest.Digest) (tar_patch.DataSource, error) {
+	return nil, nil
 }
 
 // returns true if path exists

@@ -4,10 +4,12 @@ import (
 	"context"
 	"io"
 
+	"github.com/alexlarsson/tar-diff/pkg/tar-patch"
 	"github.com/containers/image/v5/docker/reference"
 	"github.com/containers/image/v5/docker/tarfile"
 	"github.com/containers/image/v5/types"
 	"github.com/docker/docker/client"
+	digest "github.com/opencontainers/go-digest"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
@@ -145,4 +147,8 @@ func (d *daemonImageDestination) Commit(ctx context.Context, unparsedToplevel ty
 	case err := <-d.statusChannel:
 		return err
 	}
+}
+
+func (d *daemonImageDestination) GetLayerDeltaData(ctx context.Context, diffID digest.Digest) (tar_patch.DataSource, error) {
+	return nil, nil
 }

@@ -5,6 +5,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/alexlarsson/tar-diff/pkg/tar-patch"
 	"github.com/containers/image/v5/docker/reference"
 	compression "github.com/containers/image/v5/pkg/compression/types"
 	digest "github.com/opencontainers/go-digest"
@@ -256,6 +257,7 @@ type ImageSource interface {
 	// The Digest field is guaranteed to be provided; Size may be -1.
 	// WARNING: The list may contain duplicates, and they are semantically relevant.
 	LayerInfosForCopy(ctx context.Context, instanceDigest *digest.Digest) ([]BlobInfo, error)
+	GetDeltaManifest(ctx context.Context, instanceDigest *digest.Digest) ([]byte, string, error)
 }
 
 // ImageDestination is a service, possibly remote (= slow), to store components of a single image.
@@ -329,6 +331,7 @@ type ImageDestination interface {
 	// - Uploaded data MAY be visible to others before Commit() is called
 	// - Uploaded data MAY be removed or MAY remain around if Close() is called without Commit() (i.e. rollback is allowed but not guaranteed)
 	Commit(ctx context.Context, unparsedToplevel UnparsedImage) error
+	GetLayerDeltaData(ctx context.Context, diffID digest.Digest) (tar_patch.DataSource, error)
 }
 
 // ManifestTypeRejectedError is returned by ImageDestination.PutManifest if the destination is in principle available,
@@ -407,6 +410,7 @@ type Image interface {
 	// Size returns an approximation of the amount of disk space which is consumed by the image in its current
 	// location.  If the size is not known, -1 will be returned.
 	Size() (int64, error)
+	DeltaLayers(ctx context.Context) ([]BlobInfo, error)
 }
 
 // ImageCloser is an Image with a Close() method which must be called by the user.

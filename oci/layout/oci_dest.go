@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"github.com/alexlarsson/tar-diff/pkg/tar-patch"
 	"github.com/containers/image/v5/manifest"
 	"github.com/containers/image/v5/types"
 	digest "github.com/opencontainers/go-digest"
@@ -312,6 +313,10 @@ func (d *ociImageDestination) Commit(context.Context, types.UnparsedImage) error
 		return err
 	}
 	return ioutil.WriteFile(d.ref.indexPath(), indexJSON, 0644)
+}
+
+func (d *ociImageDestination) GetLayerDeltaData(ctx context.Context, diffID digest.Digest) (tar_patch.DataSource, error) {
+	return nil, nil
 }
 
 func ensureDirectoryExists(path string) error {

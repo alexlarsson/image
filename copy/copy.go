@@ -8,10 +8,12 @@ import (
 	"io/ioutil"
 	"os"
 	"reflect"
+	"sort"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/alexlarsson/tar-diff/pkg/tar-patch"
 	"github.com/containers/image/v5/docker/reference"
 	"github.com/containers/image/v5/image"
 	"github.com/containers/image/v5/internal/pkg/platform"
@@ -790,6 +792,11 @@ func (ic *imageCopier) copyLayers(ctx context.Context) error {
 		srcInfosUpdated = true
 	}
 
+	deltaLayers, err := ic.src.DeltaLayers(ctx)
+	if err != nil {
+		return err
+	}
+
 	type copyLayerData struct {
 		destInfo types.BlobInfo
 		diffID   digest.Digest
@@ -810,7 +817,7 @@ func (ic *imageCopier) copyLayers(ctx context.Context) error {
 	}
 
 	data := make([]copyLayerData, numLayers)
-	copyLayerHelper := func(index int, srcLayer types.BlobInfo, toEncrypt bool, pool *mpb.Progress) {
+	copyLayerHelper := func(index int, srcLayer types.BlobInfo, toEncrypt bool, pool *mpb.Progress, deltaLayers []types.BlobInfo) {
 		defer copySemaphore.Release(1)
 		defer copyGroup.Done()
 		cld := copyLayerData{}
@@ -825,7 +832,7 @@ func (ic *imageCopier) copyLayers(ctx context.Context) error {
 				logrus.Debugf("Skipping foreign layer %q copy to %s", cld.destInfo.Digest, ic.c.dest.Reference().Transport().Name())
 			}
 		} else {
-			cld.destInfo, cld.diffID, cld.err = ic.copyLayer(ctx, srcLayer, toEncrypt, pool)
+			cld.destInfo, cld.diffID, cld.err = ic.copyLayer(ctx, index, srcLayer, toEncrypt, pool, deltaLayers)
 		}
 		data[index] = cld
 	}
@@ -857,7 +864,7 @@ func (ic *imageCopier) copyLayers(ctx context.Context) error {
 			if err != nil {
 				return errors.Wrapf(err, "Can't acquire semaphore")
 			}
-			go copyLayerHelper(i, srcLayer, encLayerBitmap[i], progressPool)
+			go copyLayerHelper(i, srcLayer, encLayerBitmap[i], progressPool, deltaLayers)
 		}
 
 		// Wait for all layers to be copied
@@ -1040,9 +1047,36 @@ type diffIDResult struct {
 	err    error
 }
 
+func (ic *imageCopier) getMatchingDeltaLayers(ctx context.Context, srcIndex int, deltaLayers []types.BlobInfo) (digest.Digest, []*types.BlobInfo) {
+	if deltaLayers == nil {
+		return "", nil
+	}
+	config, _ := ic.src.OCIConfig(ctx)
+	if config == nil || config.RootFS.DiffIDs == nil || len(config.RootFS.DiffIDs) <= srcIndex {
+		return "", nil
+	}
+
+	layerDiffId := config.RootFS.DiffIDs[srcIndex]
+
+	var matchingLayers []*types.BlobInfo
+	for i := range deltaLayers {
+		deltaLayer := &deltaLayers[i]
+		to := deltaLayer.Annotations["com.redhat.deltaTo"]
+		if to == layerDiffId.String() {
+			matchingLayers = append(matchingLayers, deltaLayer)
+		}
+	}
+
+	// Sort smallest deltas first
+	sort.Slice(matchingLayers, func(i, j int) bool {
+		return matchingLayers[i].Size < matchingLayers[j].Size
+	})
+	return layerDiffId, matchingLayers
+}
+
 // copyLayer copies a layer with srcInfo (with known Digest and Annotations and possibly known Size) in src to dest, perhaps compressing it if canCompress,
 // and returns a complete blobInfo of the copied layer, and a value for LayerDiffIDs if diffIDIsNeeded
-func (ic *imageCopier) copyLayer(ctx context.Context, srcInfo types.BlobInfo, toEncrypt bool, pool *mpb.Progress) (types.BlobInfo, digest.Digest, error) {
+func (ic *imageCopier) copyLayer(ctx context.Context, srcIndex int, srcInfo types.BlobInfo, toEncrypt bool, pool *mpb.Progress, deltaLayers []types.BlobInfo) (types.BlobInfo, digest.Digest, error) {
 	cachedDiffID := ic.c.blobInfoCache.UncompressedDigest(srcInfo.Digest) // May be ""
 	// Diffs are needed if we are encrypting an image or trying to decrypt an image
 	diffIDIsNeeded := ic.diffIDsAreNeeded && cachedDiffID == "" || toEncrypt || (isOciEncrypted(srcInfo.MediaType) && ic.ociDecryptConfig != nil)
@@ -1059,6 +1093,55 @@ func (ic *imageCopier) copyLayer(ctx context.Context, srcInfo types.BlobInfo, to
 			bar.SetTotal(0, true)
 			return blobInfo, cachedDiffID, nil
 		}
+	}
+
+	// Fallback: copy the layer, computing the diffID if we need to do so, possibly using a delta
+	var srcStream io.ReadCloser
+	srcBlobSize := int64(-1)
+	srcDigest := srcInfo.Digest
+
+	// First look for a delta that matches this layer
+	deltaDiffID, matchingDeltas := ic.getMatchingDeltaLayers(ctx, srcIndex, deltaLayers)
+	for i := range matchingDeltas {
+		if false {
+			break
+		}
+		matchingDelta := matchingDeltas[i]
+		from := matchingDelta.Annotations["com.redhat.deltaFrom"]
+		fromDigest, err := digest.Parse(from)
+		if err != nil {
+			continue // Silently ignore if server specified a werid format
+		}
+
+		dataSource, err := ic.c.dest.GetLayerDeltaData(ctx, fromDigest)
+		if err != nil {
+			return types.BlobInfo{}, "", err // Internal error
+		}
+		if dataSource == nil {
+			continue // from layer doesn't exist
+		}
+
+		logrus.Debugf("Using delta %v for DiffID %v", matchingDelta.Digest, fromDigest)
+
+		deltaStream, _, err := ic.c.rawSource.GetBlob(ctx, *matchingDelta, ic.c.blobInfoCache)
+		if err != nil {
+			return types.BlobInfo{}, "", errors.Wrapf(err, "Error reading delta blob %s", matchingDelta.Digest)
+		}
+
+		pr, pw := io.Pipe()
+		go func() {
+			tar_patch.Apply(deltaStream, dataSource, pw)
+			deltaStream.Close()
+			pw.Close()
+		}()
+
+		bar := ic.c.createProgressBar(pool, srcInfo, "blob", "done")
+
+		blobInfo, diffIDChan, err := ic.copyLayerFromStream(ctx, srcStream, types.BlobInfo{Digest: srcInfo.Digest, Size: srcBlobSize, MediaType: srcInfo.MediaType, Annotations: srcInfo.Annotations}, diffIDIsNeeded, toEncrypt, bar)
+		if err != nil {
+			return types.BlobInfo{}, "", err
+		}
+
 	}
 
 	// Fallback: copy the layer, computing the diffID if we need to do so
@@ -1227,6 +1310,11 @@ func (c *copier) copyBlobFromStream(ctx context.Context, srcStream io.Reader, sr
 	if canModifyBlob && isOciEncrypted(srcInfo.MediaType) {
 		// PreserveOriginal due to any compression not being able to be done on an encrypted blob unless decrypted
 		logrus.Debugf("Using original blob without modification for encrypted blob")
+		compressionOperation = types.PreserveOriginal
+		inputInfo = srcInfo
+	} else if canModifyBlob && manifest.IsNoCompressType(srcInfo.MediaType) {
+		// This is a blob we should not repack, such as a delta
+		logrus.Debugf("Using original blob without modification for no-compress type")
 		compressionOperation = types.PreserveOriginal
 		inputInfo = srcInfo
 	} else if canModifyBlob && c.dest.DesiredLayerCompression() == types.Compress && !isCompressed {

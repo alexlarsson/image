@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/alexlarsson/tar-diff/pkg/tar-patch"
 	"github.com/containers/image/v5/docker"
 	"github.com/containers/image/v5/docker/reference"
 	"github.com/containers/image/v5/internal/iolimits"
@@ -209,6 +210,13 @@ func (s *openshiftImageSource) GetManifest(ctx context.Context, instanceDigest *
 		return nil, "", err
 	}
 	return s.docker.GetManifest(ctx, instanceDigest)
+}
+
+func (s *openshiftImageSource) GetDeltaManifest(ctx context.Context, instanceDigest *digest.Digest) ([]byte, string, error) {
+	if err := s.ensureImageIsResolved(ctx); err != nil {
+		return nil, "", err
+	}
+	return s.docker.GetDeltaManifest(ctx, instanceDigest)
 }
 
 // HasThreadSafeGetBlob indicates whether GetBlob can be executed concurrently.
@@ -509,6 +517,10 @@ sigExists:
 // - Uploaded data MAY be removed or MAY remain around if Close() is called without Commit() (i.e. rollback is allowed but not guaranteed)
 func (d *openshiftImageDestination) Commit(ctx context.Context, unparsedToplevel types.UnparsedImage) error {
 	return d.docker.Commit(ctx, unparsedToplevel)
+}
+
+func (d *openshiftImageDestination) GetLayerDeltaData(ctx context.Context, diffID digest.Digest) (tar_patch.DataSource, error) {
+	return d.docker.GetLayerDeltaData(ctx, diffID)
 }
 
 // These structs are subsets of github.com/openshift/origin/pkg/image/api/v1 and its dependencies.

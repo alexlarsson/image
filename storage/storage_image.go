@@ -15,6 +15,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/alexlarsson/tar-diff/pkg/tar-patch"
 	"github.com/containers/image/v5/docker/reference"
 	"github.com/containers/image/v5/image"
 	"github.com/containers/image/v5/internal/tmpdir"
@@ -224,6 +225,10 @@ func (s *storageImageSource) GetManifest(ctx context.Context, instanceDigest *di
 		}
 	}
 	return s.cachedManifest, manifest.GuessMIMEType(s.cachedManifest), err
+}
+
+func (s *storageImageSource) GetDeltaManifest(ctx context.Context, instanceDigest *digest.Digest) ([]byte, string, error) {
+	return nil, "", nil
 }
 
 // LayerInfosForCopy() returns the list of layer blobs that make up the root filesystem of
@@ -898,6 +903,52 @@ func (s *storageImageDestination) Commit(ctx context.Context, unparsedToplevel t
 		logrus.Debugf("saved image metadata %q", string(metadata))
 	}
 	return nil
+}
+
+type LayerDeltaDataSource struct {
+	fs    *tar_patch.FilesystemDataSource
+	store storage.Store
+	id    string
+}
+
+func (s *LayerDeltaDataSource) Close() error {
+	err := s.fs.Close()
+	s.store.Unmount(s.id, false)
+	return err
+}
+
+func (s *LayerDeltaDataSource) Read(data []byte) (n int, err error) {
+	return s.fs.Read(data)
+}
+
+func (s *LayerDeltaDataSource) SetCurrentFile(file string) error {
+	return s.fs.SetCurrentFile(file)
+}
+
+func (s *LayerDeltaDataSource) Seek(offset int64, whence int) (int64, error) {
+	return s.fs.Seek(offset, whence)
+}
+
+func (s *storageImageDestination) GetLayerDeltaData(ctx context.Context, diffID digest.Digest) (tar_patch.DataSource, error) {
+	layers, err := s.imageRef.transport.store.LayersByUncompressedDigest(diffID)
+	if err != nil && err != storage.ErrLayerUnknown {
+		return nil, err // Internal error
+	}
+	if layers == nil || len(layers) == 0 {
+		return nil, nil // Unknown layer
+	}
+
+	layerId := layers[len(layers)-1].ID
+	mountPoint, err := s.imageRef.transport.store.Mount(layerId, "")
+	if err != nil {
+		return nil, err
+	}
+
+	return &LayerDeltaDataSource{
+		fs:    tar_patch.NewFilesystemDataSource(mountPoint),
+		store: s.imageRef.transport.store,
+		id:    layerId,
+	}, nil
 }
 
 var manifestMIMETypes = []string{

@@ -6,6 +6,7 @@ require (
 	github.com/14rcole/gopopulate v0.0.0-20180821133914-b175b219e774 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20170929234023-d6e3b3328b78 // indirect
 	github.com/BurntSushi/toml v0.3.1
+	github.com/alexlarsson/tar-diff v0.0.0-20200420105158-0c605fa029cc
 	github.com/containers/libtrust v0.0.0-20190913040956-14b96171aa3b
 	github.com/containers/ocicrypt v1.0.2
 	github.com/containers/storage v1.18.2

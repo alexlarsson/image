@@ -201,6 +201,20 @@ func (s *dockerImageSource) fetchManifest(ctx context.Context, tagOrDigest strin
 	return manblob, simplifyContentType(res.Header.Get("Content-Type")), nil
 }
 
+func (s *dockerImageSource) GetDeltaManifest(ctx context.Context, instanceDigest *digest.Digest) ([]byte, string, error) {
+	digest, err := s.manifestDigest(ctx, instanceDigest)
+	if err != nil {
+		return nil, "", err
+	}
+
+	tagname := "delta-" + digest.Encoded()[:12]
+
+	// Don't return error if the  manifest doesn't exist, only for internal errors
+	// Deltas are an optional optimization anyway
+	mb, mt, _ := s.fetchManifest(ctx, tagname)
+	return mb, mt, nil
+}
+
 // ensureManifestIsLoaded sets s.cachedManifest and s.cachedManifestMIMEType
 //
 // ImageSource implementations are not required or expected to do any caching,

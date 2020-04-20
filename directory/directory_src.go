@@ -44,6 +44,10 @@ func (s *dirImageSource) GetManifest(ctx context.Context, instanceDigest *digest
 	return m, manifest.GuessMIMEType(m), err
 }
 
+func (s *dirImageSource) GetDeltaManifest(ctx context.Context, instanceDigest *digest.Digest) ([]byte, string, error) {
+	return nil, "", nil
+}
+
 // HasThreadSafeGetBlob indicates whether GetBlob can be executed concurrently.
 func (s *dirImageSource) HasThreadSafeGetBlob() bool {
 	return false

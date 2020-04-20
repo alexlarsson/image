@@ -410,6 +410,10 @@ func (s *Source) GetManifest(ctx context.Context, instanceDigest *digest.Digest)
 	return s.generatedManifest, manifest.DockerV2Schema2MediaType, nil
 }
 
+func (s *Source) GetDeltaManifest(ctx context.Context, instanceDigest *digest.Digest) ([]byte, string, error) {
+	return nil, "", nil
+}
+
 // uncompressedReadCloser is an io.ReadCloser that closes both the uncompressed stream and the underlying input.
 type uncompressedReadCloser struct {
 	io.Reader

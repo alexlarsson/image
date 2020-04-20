@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/alexlarsson/tar-diff/pkg/tar-patch"
 	"github.com/containers/image/v5/types"
 	"github.com/containers/storage/pkg/archive"
 	digest "github.com/opencontainers/go-digest"
@@ -138,6 +139,10 @@ func (d *ociArchiveImageDestination) Commit(ctx context.Context, unparsedTopleve
 	// path to save tarred up file
 	dst := d.ref.resolvedFile
 	return tarDirectory(src, dst)
+}
+
+func (d *ociArchiveImageDestination) GetLayerDeltaData(ctx context.Context, diffID digest.Digest) (tar_patch.DataSource, error) {
+	return nil, nil
 }
 
 // tar converts the directory at src and saves it to dst

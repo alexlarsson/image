@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/alexlarsson/tar-diff/pkg/tar-patch"
 	"github.com/containers/image/v5/docker/reference"
 	"github.com/containers/image/v5/internal/iolimits"
 	"github.com/containers/image/v5/manifest"
@@ -641,4 +642,8 @@ sigExists:
 // - Uploaded data MAY be removed or MAY remain around if Close() is called without Commit() (i.e. rollback is allowed but not guaranteed)
 func (d *dockerImageDestination) Commit(context.Context, types.UnparsedImage) error {
 	return nil
+}
+
+func (d *dockerImageDestination) GetLayerDeltaData(ctx context.Context, diffID digest.Digest) (tar_patch.DataSource, error) {
+	return nil, nil
 }
